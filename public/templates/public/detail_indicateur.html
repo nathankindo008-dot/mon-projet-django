@@ -1,0 +1,563 @@
+{% extends 'base.html' %}
+{% block title %}{{ indicateur.nom|truncatechars:50 }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .ind-title { font-size: 1.4rem; font-weight: 700; color: #1a3a5c; line-height: 1.3; }
+    .ind-meta-line { font-size: 0.85rem; color: #666; margin-top: 0.4rem; }
+    .info-card { border-left: 4px solid #009A44; }
+    .data-table th { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px; }
+    .data-table td { font-size: 0.88rem; }
+    .year-filter { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+    .year-btn {
+        padding: 3px 12px;
+        border: 1px solid #dee2e6;
+        border-radius: 20px;
+        background: #fff;
+        font-size: 0.82rem;
+        cursor: pointer;
+        transition: all 0.15s;
+        color: #555;
+    }
+    .year-btn:hover { border-color: #1a3a5c; color: #1a3a5c; }
+    .year-btn.active { background: #1a3a5c; color: #fff; border-color: #1a3a5c; }
+    .year-btn-all {
+        padding: 3px 14px;
+        border: 1px solid #009A44;
+        border-radius: 20px;
+        background: #009A44;
+        color: #fff;
+        font-size: 0.82rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+    .year-btn-all.inactive { background: #fff; color: #009A44; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'public:accueil' %}">Accueil</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'public:liste_indicateurs' %}">Indicateurs</a></li>
+            <li class="breadcrumb-item active">
+                {{ indicateur.get_source_display }}
+            </li>
+        </ol>
+    </nav>
+
+    <!-- TITRE + META -->
+    <div class="mb-4">
+        <div class="d-flex align-items-start justify-content-between">
+            <div>
+                <h2 class="ind-title">{{ indicateur.nom }}</h2>
+                <div class="ind-meta-line">
+                    {% if indicateur.source == 'CISAT' %}
+                    <span class="badge bg-primary me-1">Climatique</span>
+                    {% else %}
+                    <span class="badge bg-secondary me-1">Environnemental</span>
+                    {% endif %}
+                    {% if indicateur.etage == 1 %}
+                    <span class="badge bg-success me-1">Niveau 1</span>
+                    {% elif indicateur.etage == 2 %}
+                    <span class="badge bg-warning text-dark me-1">Niveau 2</span>
+                    {% else %}
+                    <span class="badge bg-light text-dark me-1">Niveau 3</span>
+                    {% endif %}
+                    {% if indicateur.zone_cisat %}
+                    <span class="me-2">| {{ indicateur.zone_cisat }}</span>
+                    {% elif indicateur.composante_basicset %}
+                    <span class="me-2">| {{ indicateur.composante_basicset }}</span>
+                    {% endif %}
+                    {% if indicateur.unite_mesure %}
+                    <span>| Unité : <strong>{{ indicateur.unite_mesure }}</strong></span>
+                    {% endif %}
+                </div>
+                {% if indicateur.statistique %}
+                <div class="ind-meta-line fst-italic">{{ indicateur.statistique }}</div>
+                {% endif %}
+            </div>
+            <div class="d-flex gap-2">
+                <div class="dropdown">
+                    <button class="btn btn-outline-success btn-sm dropdown-toggle" type="button"
+                            data-bs-toggle="dropdown" {% if not donnees %}disabled{% endif %}>
+                        <i class="bi bi-download me-1"></i>Télécharger
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li>
+                            <a class="dropdown-item" href="{% url 'public:export_donnees_indicateur' indicateur.pk %}?format=csv">
+                                <i class="bi bi-filetype-csv me-2 text-success"></i>CSV
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item" href="{% url 'public:export_donnees_indicateur' indicateur.pk %}?format=excel">
+                                <i class="bi bi-file-earmark-excel me-2 text-success"></i>Excel
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- FILTRE ANNEES -->
+    {% if annees_disponibles|length > 1 %}
+    <div class="card mb-3">
+        <div class="card-body py-2">
+            <div class="d-flex align-items-center flex-wrap gap-3">
+                <span class="me-3 fw-semibold text-muted" style="font-size:.85rem;">
+                    <i class="bi bi-funnel me-1"></i>Période :
+                </span>
+                <div class="d-flex flex-wrap align-items-end gap-3">
+                    <div class="d-flex flex-column">
+                        <label for="year-start" class="form-label mb-1" style="font-size:.85rem;">Année début</label>
+                        <select id="year-start" class="form-select form-select-sm" onchange="onStartYearChange()">
+                            {% for a in annees_disponibles %}
+                            <option value="{{ a }}">{{ a }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="d-flex align-items-center" style="font-size:1rem;">à</div>
+                    <div class="d-flex flex-column">
+                        <label for="year-end" class="form-label mb-1" style="font-size:.85rem;">Année fin</label>
+                        <select id="year-end" class="form-select form-select-sm" onchange="onEndYearChange()">
+                            {% for a in annees_disponibles %}
+                            <option value="{{ a }}">{{ a }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div id="year-range-error" class="text-danger" style="display:none; font-size:.85rem;">L'année de fin doit être strictement supérieure à l'année de début.</div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="row">
+        <!-- COLONNE PRINCIPALE -->
+        <div class="col-lg-8">
+
+            <!-- GRAPHIQUE PLOTLY -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <div id="plotly-chart" style="height:380px;"></div>
+                    <div id="no-graph-msg" class="text-center text-muted py-5" style="display:none;">
+                        <i class="bi bi-graph-up fs-1 d-block mb-3"></i>
+                        <p>Aucune donnée numérique disponible pour afficher un graphique</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TABLEAU DES DONNEES -->
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span>
+                        <i class="bi bi-table me-2"></i>Données collectées
+                        <span class="badge bg-secondary ms-2" id="table-count">{{ donnees|length }} enregistrement{{ donnees|length|pluralize }}</span>
+                    </span>
+                    {% if donnees %}
+                    <div class="dropdown">
+                        <button class="btn btn-outline-success btn-sm dropdown-toggle" type="button"
+                                data-bs-toggle="dropdown">
+                            <i class="bi bi-download"></i>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li>
+                                <a class="dropdown-item" href="{% url 'public:export_donnees_indicateur' indicateur.pk %}?format=csv">
+                                    <i class="bi bi-filetype-csv me-2 text-success"></i>CSV
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="{% url 'public:export_donnees_indicateur' indicateur.pk %}?format=excel">
+                                    <i class="bi bi-file-earmark-excel me-2 text-success"></i>Excel
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="card-body p-0">
+                    <table class="table table-hover mb-0 data-table">
+                        <thead>
+                            <tr>
+                                <th>Année</th>
+                                <th>Valeur numérique</th>
+                                <th>Valeur texte</th>
+                                <th>Unité</th>
+                                <th>Source</th>
+                            </tr>
+                        </thead>
+                        <tbody id="data-tbody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- COLONNE LATERALE -->
+        <div class="col-lg-4">
+
+            <!-- RÉSUMÉ -->
+            <div class="card info-card mb-3">
+                <div class="card-body" style="font-size:0.88rem;">
+                    <table class="table table-sm table-borderless mb-0">
+                        <tr><td class="text-muted" style="width:40%">Indicateur</td>
+                            <td class="fw-semibold">{{ indicateur.get_source_display }}</td></tr>
+                        {% if indicateur.zone_cisat %}
+                        <tr><td class="text-muted">Zone</td>
+                            <td>{{ indicateur.zone_cisat }}</td></tr>
+                        {% endif %}
+                        {% if indicateur.composante_basicset %}
+                        <tr><td class="text-muted">Composante</td>
+                            <td>{{ indicateur.composante_basicset }}</td></tr>
+                        {% endif %}
+                        {% if indicateur.sous_composante %}
+                        <tr><td class="text-muted">Sous-composante</td>
+                            <td>{{ indicateur.sous_composante }}</td></tr>
+                        {% endif %}
+                        <tr><td class="text-muted">Niveau</td>
+                            <td>{{ indicateur.get_etage_display }}</td></tr>
+                        {% if indicateur.unite_mesure %}
+                        <tr><td class="text-muted">Unité</td>
+                            <td>{{ indicateur.unite_mesure }}</td></tr>
+                        {% endif %}
+                    </table>
+                    <div class="d-grid mt-3">
+                        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#metaModal">
+                            <i class="bi bi-book me-2"></i>Plus de métadonnées
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- MODALE MÉTADONNÉES -->
+        <div class="modal fade" id="metaModal" tabindex="-1" aria-labelledby="metaModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                <div class="modal-content">
+                    <div class="modal-header" style="background:#1a3a5c;">
+                        <h5 class="modal-title text-white" id="metaModalLabel">
+                            <i class="bi bi-book me-2"></i>Métadonnées : {{ indicateur.nom|truncatechars:60 }}
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fermer"></button>
+                    </div>
+                    <div class="modal-body" style="font-size:0.9rem;">
+
+                        <h6 class="fw-bold text-muted text-uppercase mb-3" style="font-size:.75rem; letter-spacing:1px;">
+                            Identification
+                        </h6>
+                        <table class="table table-sm table-borderless mb-4">
+                            <tr><td class="text-muted" style="width:35%">Indicateur</td>
+                                <td class="fw-semibold">{{ indicateur.get_source_display }}</td></tr>
+                            <tr><td class="text-muted">Niveau</td>
+                                <td>{{ indicateur.get_etage_display }}</td></tr>
+                            {% if indicateur.zone_cisat %}
+                            <tr><td class="text-muted">Zone</td>
+                                <td>{{ indicateur.zone_cisat }}</td></tr>
+                            {% endif %}
+                            {% if indicateur.sous_composante %}
+                            <tr><td class="text-muted">Sous-composante</td>
+                                <td>{{ indicateur.sous_composante }}</td></tr>
+                            {% elif indicateur.composante_basicset %}
+                            <tr><td class="text-muted">Composante</td>
+                                <td>{{ indicateur.composante_basicset }}</td></tr>
+                            {% endif %}
+                            {% if indicateur.theme %}
+                            <tr><td class="text-muted">Thème</td>
+                                <td>{{ indicateur.theme }}</td></tr>
+                            {% endif %}
+                            {% if indicateur.unite_mesure %}
+                            <tr><td class="text-muted">Unité</td>
+                                <td>{{ indicateur.unite_mesure }}</td></tr>
+                            {% endif %}
+                        </table>
+
+                        {% if meta and meta.definition %}
+                        <h6 class="fw-bold text-muted text-uppercase mb-2" style="font-size:.75rem; letter-spacing:1px;">
+                            Définition
+                        </h6>
+                        <p>{{ meta.definition }}</p>
+                        {% endif %}
+
+                        {% if meta and meta.methode_calcul %}
+                        <h6 class="fw-bold text-muted text-uppercase mb-2" style="font-size:.75rem; letter-spacing:1px;">
+                            Méthode de calcul
+                        </h6>
+                        <p>{{ meta.methode_calcul }}</p>
+                        {% endif %}
+
+                        <h6 class="fw-bold text-muted text-uppercase mb-3 mt-4" style="font-size:.75rem; letter-spacing:1px;">
+                            Informations complémentaires
+                        </h6>
+                        <table class="table table-sm table-borderless mb-0">
+                            {% if meta and meta.type_source_donnee %}
+                            <tr><td class="text-muted" style="width:35%">Source de données</td>
+                                <td>{{ meta.type_source_donnee }}</td></tr>
+                            {% endif %}
+                            {% if meta and meta.frequence_maj %}
+                            <tr><td class="text-muted">Fréquence</td>
+                                <td>{{ meta.frequence_maj }}</td></tr>
+                            {% endif %}
+                            {% if meta and meta.agregations_potentielles %}
+                            <tr><td class="text-muted">Agrégations</td>
+                                <td>{{ meta.agregations_potentielles }}</td></tr>
+                            {% endif %}
+                            {% if indicateur.accord_paris %}
+                            <tr><td class="text-muted">Accord de Paris</td>
+                                <td>{{ indicateur.accord_paris }}</td></tr>
+                            {% endif %}
+                            {% if indicateur.ref_odd %}
+                            <tr><td class="text-muted">Réf. ODD</td>
+                                <td>{{ indicateur.ref_odd }}</td></tr>
+                            {% endif %}
+                            {% if indicateur.ref_fdes %}
+                            <tr><td class="text-muted">Réf. FDES</td>
+                                <td>{{ indicateur.ref_fdes }}</td></tr>
+                            {% endif %}
+                            {% if indicateur.ref_sendai %}
+                            <tr><td class="text-muted">Réf. Sendai</td>
+                                <td>{{ indicateur.ref_sendai }}</td></tr>
+                            {% endif %}
+                            {% if indicateur.ref_unece %}
+                            <tr><td class="text-muted">Réf. UNECE</td>
+                                <td>{{ indicateur.ref_unece }}</td></tr>
+                            {% endif %}
+                            {% if indicateur.pawp_katowice %}
+                            <tr><td class="text-muted">PAWP / Katowice</td>
+                                <td>{{ indicateur.pawp_katowice }}</td></tr>
+                            {% endif %}
+                            {% if indicateur.sources_nat %}
+                            <tr><td class="text-muted">Sources nationales</td>
+                                <td>{{ indicateur.sources_nat }}</td></tr>
+                            {% endif %}
+                            {% if indicateur.institution_focale %}
+                            <tr><td class="text-muted">Institution</td>
+                                <td>{{ indicateur.institution_focale }}</td></tr>
+                            {% endif %}
+                        </table>
+
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+    var urlRe = /(https?:\/\/[^\s\]\)>,]+)/gi;
+    var modal = document.getElementById('metaModal');
+    function linkify(el) {
+        if (el.tagName === 'A') return;
+        if (el.children.length === 0 && el.textContent.match(urlRe)) {
+            el.innerHTML = el.textContent
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                .replace(urlRe, '<a href="$1" target="_blank" rel="noopener noreferrer" class="text-primary">$1</a>');
+            return;
+        }
+        Array.from(el.children).forEach(linkify);
+    }
+    linkify(modal.querySelector('.modal-body'));
+})();
+</script>
+<script src="https://cdn.plot.ly/plotly-2.35.0.min.js"></script>
+<script>
+const ALL_DATA    = {{ donnees_json }};
+const GRAPH_DATA  = {{ graph_json }};
+const AVAILABLE_YEARS = {{ annees_disponibles_json }};
+const UNITE_LABEL = '{{ unite_label|escapejs }}';
+
+let selectedStartYear = AVAILABLE_YEARS[0];
+let selectedEndYear = AVAILABLE_YEARS[AVAILABLE_YEARS.length - 1];
+let chartType = 'line';
+
+function initYearSelectors() {
+    const startSelect = document.getElementById('year-start');
+    const endSelect = document.getElementById('year-end');
+    if (!startSelect || !endSelect) return;
+
+    startSelect.value = selectedStartYear;
+    endSelect.value = selectedEndYear;
+    updateYearOptions();
+}
+
+function onStartYearChange() {
+    const startSelect = document.getElementById('year-start');
+    const endSelect = document.getElementById('year-end');
+    if (!startSelect || !endSelect) return;
+
+    selectedStartYear = parseInt(startSelect.value, 10);
+    if (selectedEndYear <= selectedStartYear) {
+        const nextYear = AVAILABLE_YEARS.find(y => y > selectedStartYear);
+        if (nextYear !== undefined) {
+            selectedEndYear = nextYear;
+            endSelect.value = selectedEndYear;
+        }
+    }
+    updateYearOptions();
+    refresh();
+}
+
+function onEndYearChange() {
+    const startSelect = document.getElementById('year-start');
+    const endSelect = document.getElementById('year-end');
+    if (!startSelect || !endSelect) return;
+
+    selectedEndYear = parseInt(endSelect.value, 10);
+    if (selectedEndYear <= selectedStartYear) {
+        const previousYears = AVAILABLE_YEARS.filter(y => y < selectedEndYear);
+        if (previousYears.length > 0) {
+            selectedStartYear = previousYears[previousYears.length - 1];
+            startSelect.value = selectedStartYear;
+        }
+    }
+    updateYearOptions();
+    refresh();
+}
+
+function updateYearOptions() {
+    const startSelect = document.getElementById('year-start');
+    const endSelect = document.getElementById('year-end');
+    if (!startSelect || !endSelect) return;
+
+    Array.from(startSelect.options).forEach(option => {
+        const year = parseInt(option.value, 10);
+        option.disabled = year >= selectedEndYear;
+    });
+    Array.from(endSelect.options).forEach(option => {
+        const year = parseInt(option.value, 10);
+        option.disabled = year <= selectedStartYear;
+    });
+
+    const errorEl = document.getElementById('year-range-error');
+    if (errorEl) {
+        errorEl.style.display = selectedEndYear <= selectedStartYear ? 'block' : 'none';
+    }
+}
+
+function getSelectedYears() {
+    const years = [];
+    for (const year of AVAILABLE_YEARS) {
+        if (year >= selectedStartYear && year <= selectedEndYear) {
+            years.push(year);
+        }
+    }
+    return years;
+}
+
+function refresh() {
+    renderTable();
+    renderChart();
+}
+
+window.addEventListener('DOMContentLoaded', initYearSelectors);
+
+function renderTable() {
+    const tbody = document.getElementById('data-tbody');
+    const countEl = document.getElementById('table-count');
+    const filtered = ALL_DATA.filter(d => d.annee >= selectedStartYear && d.annee <= selectedEndYear);
+
+    if (filtered.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted py-4">
+            <i class="bi bi-inbox fs-4 d-block mb-2"></i>
+            Aucune donnée pour la sélection
+        </td></tr>`;
+        countEl.textContent = '0 enregistrement';
+        return;
+    }
+
+    const s = filtered.length > 1 ? 's' : '';
+    countEl.textContent = filtered.length + ' enregistrement' + s;
+
+    tbody.innerHTML = filtered.map(d => `<tr>
+        <td class="fw-semibold">${d.annee}</td>
+        <td>${d.valeur_num !== null ? d.valeur_num.toLocaleString('fr-FR') : '-'}</td>
+        <td>${d.valeur_texte || '-'}</td>
+        <td class="text-muted">${d.unite || '-'}</td>
+        <td class="text-muted" style="font-size:0.8rem;">${d.source ? d.source.substring(0, 30) : '-'}</td>
+    </tr>`).join('');
+}
+
+function renderChart() {
+    const chartDiv = document.getElementById('plotly-chart');
+    const noMsg = document.getElementById('no-graph-msg');
+    const filtered = GRAPH_DATA.filter(d => d.x >= selectedStartYear && d.x <= selectedEndYear);
+
+    if (filtered.length === 0) {
+        chartDiv.style.display = 'none';
+        noMsg.style.display = 'block';
+        return;
+    }
+    chartDiv.style.display = 'block';
+    noMsg.style.display = 'none';
+
+    const x = filtered.map(d => d.x);
+    const y = filtered.map(d => d.y);
+
+    const traces = [
+        {
+            x: x, y: y,
+            type: 'scatter',
+            mode: 'lines+markers',
+            name: UNITE_LABEL,
+            line: { color: '#1a3a5c', width: 2.5 },
+            marker: { color: '#1a3a5c', size: 8 },
+            fill: 'tozeroy',
+            fillcolor: 'rgba(26,58,92,0.08)',
+            hovertemplate: '%{x}<br><b>%{y:,.2f}</b> ' + UNITE_LABEL + '<extra></extra>',
+            visible: chartType === 'line' ? true : false,
+        },
+        {
+            x: x, y: y,
+            type: 'bar',
+            name: UNITE_LABEL,
+            marker: { color: '#009A44', cornerradius: 4 },
+            hovertemplate: '%{x}<br><b>%{y:,.2f}</b> ' + UNITE_LABEL + '<extra></extra>',
+            visible: chartType === 'bar' ? true : false,
+        }
+    ];
+
+    const layout = {
+        height: 380,
+        margin: { l: 55, r: 20, t: 45, b: 40 },
+        template: 'plotly_white',
+        xaxis: { title: '', dtick: 1, gridcolor: 'rgba(0,0,0,0.05)' },
+        yaxis: { title: UNITE_LABEL, gridcolor: 'rgba(0,0,0,0.08)', separatethousands: true },
+        hovermode: 'x unified',
+        updatemenus: [{
+            type: 'buttons', direction: 'right',
+            x: 0, y: 1.15, xanchor: 'left', yanchor: 'top',
+            bgcolor: '#f8f9fa', bordercolor: '#dee2e6',
+            font: { size: 12, color: '#1a3a5c' },
+            active: chartType === 'line' ? 0 : 1,
+            buttons: [
+                { label: '  Ligne  ', method: 'update', args: [{ visible: [true, false] }] },
+                { label: '  Barres  ', method: 'update', args: [{ visible: [false, true] }] },
+            ]
+        }]
+    };
+
+    const config = {
+        responsive: true,
+        displayModeBar: true,
+        modeBarButtonsToRemove: ['lasso2d', 'select2d'],
+        displaylogo: false,
+        locale: 'fr',
+    };
+
+    Plotly.newPlot(chartDiv, traces, layout, config);
+}
+
+refresh();
+</script>
+{% endblock %}

@@ -1,0 +1,568 @@
+{% extends 'base.html' %}
+{% block title %}Saisie{% endblock %}
+
+{% block extra_css %}
+<style>
+.ind-info { background:#f0f7ff; border-left:4px solid #1a3a5c; border-radius:4px; padding:1rem; }
+.required-star { color: #dc3545; }
+.form-select, .form-control { font-size: 0.92rem; }
+#info-indicateur { display: none; }
+.filter-bar { background: #edf2f7; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; }
+.filter-bar label { font-size: 0.8rem; color: #555; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+.filter-bar .form-select, .filter-bar .form-control { font-size: 0.85rem; }
+.filter-count { font-size: 0.8rem; color: #666; }
+.filter-count strong { color: #1a3a5c; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <!-- SIDEBAR -->
+        <div class="col-md-2 px-0 sidebar">
+            <div class="user-info mt-2">
+                <div class="user-name">{{ user.prenom }} {{ user.nom }}</div>
+                <div class="user-role">{{ user.role }}</div>
+            </div>
+            <div class="sidebar-title">Navigation</div>
+            <nav class="nav flex-column">
+                <a class="nav-link" href="{% url 'agents:dashboard' %}"><i class="bi bi-speedometer2"></i>Tableau de bord</a>
+                <a class="nav-link active" href="{% url 'agents:saisie' %}"><i class="bi bi-plus-circle"></i>Saisir une donnée</a>
+                <a class="nav-link" href="{% url 'agents:mes_donnees' %}"><i class="bi bi-table"></i>Mes données</a>
+                {% if user.role == 'admin' %}
+                <div class="sidebar-title mt-2">Administration</div>
+                <a class="nav-link" href="{% url 'agents:validation' %}"><i class="bi bi-check-circle"></i>Validation</a>
+                <a class="nav-link" href="{% url 'agents:liste_agents' %}"><i class="bi bi-people"></i>Gestion agents</a>
+                <a class="nav-link" href="{% url 'agents:gestion_indicateurs' %}"><i class="bi bi-journal-text"></i>Gestion indicateurs</a>
+                {% endif %}
+                <div class="sidebar-title mt-2">Public</div>
+                <a class="nav-link" href="{% url 'public:accueil' %}"><i class="bi bi-house"></i>Site public</a>
+                <a class="nav-link text-warning" href="{% url 'agents:logout' %}"><i class="bi bi-box-arrow-right"></i>Déconnexion</a>
+            </nav>
+        </div>
+
+        <!-- FORMULAIRE -->
+        <div class="col-md-10 p-4">
+            <h4 class="mb-4">
+                <i class="bi bi-plus-circle me-2 text-success"></i>Saisie d'une donnée
+            </h4>
+
+            <div class="row">
+                <div class="col-lg-8">
+                    <div class="card">
+                        <div class="card-header">
+                            <i class="bi bi-pencil-square me-2"></i>Formulaire de saisie
+                        </div>
+                        <div class="card-body">
+                            <form method="POST" id="form-saisie">
+                                {% csrf_token %}
+
+                                <!-- ÉTAPE 1 : Filtrer puis sélectionner un indicateur -->
+                                <div class="filter-bar">
+                                    <div class="row g-2 align-items-end">
+                                        <div class="col-md-3">
+                                            <label>Indicateur</label>
+                                            <select id="filtre-source" class="form-select">
+                                                <option value="">Toutes</option>
+                                                <option value="CISAT">Climatique</option>
+                                                <option value="BASICSET">Environnemental</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label>Catégorie</label>
+                                            <select id="filtre-zone" class="form-select">
+                                                <option value="">Toutes</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-2">
+                                            <label>Niveau</label>
+                                            <select id="filtre-etage" class="form-select">
+                                                <option value="">Tous</option>
+                                                <option value="1">Niveau 1</option>
+                                                <option value="2">Niveau 2</option>
+                                                <option value="3">Niveau 3</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label>Recherche</label>
+                                            <input type="text" id="filtre-recherche" class="form-control"
+                                                   placeholder="Tapez un mot-clé...">
+                                        </div>
+                                    </div>
+                                    <div class="mt-2 filter-count">
+                                        <i class="bi bi-funnel me-1"></i>
+                                        <span id="filtre-compteur"><strong>{{ indicateurs|length }}</strong> indicateurs affichés</span>
+                                        <a href="#" id="filtre-reset" class="ms-2 text-danger" style="font-size:0.8rem; display:none;">
+                                            <i class="bi bi-x-circle me-1"></i>Réinitialiser
+                                        </a>
+                                    </div>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">
+                                        Indicateur <span class="required-star">*</span>
+                                    </label>
+                                    <select name="indicateur_id" class="form-select" required
+                                            id="sel-indicateur" onchange="updateIndicateurInfo(this)">
+                                        <option value="">— Sélectionner un indicateur —</option>
+                                        {% for ind in indicateurs %}
+                                        <option value="{{ ind.pk }}"
+                                            data-unite="{{ ind.unite_mesure|default:'' }}"
+                                            data-source="{{ ind.source }}"
+                                            data-etage="{{ ind.etage }}"
+                                            data-theme="{{ ind.theme|default:'' }}"
+                                            data-zone="{{ ind.zone_cisat|default:ind.composante_basicset|default:'' }}"
+                                            data-nom="{{ ind.nom|lower }}"
+                                            {% if indicateur_selectionne.pk == ind.pk %}selected{% endif %}>
+                                            [{{ ind.source }} — Niv.{{ ind.etage }}] {{ ind.nom|truncatechars:80 }}
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+
+                                <!-- Info indicateur sélectionné -->
+                                <div id="info-indicateur" class="ind-info mb-4">
+                                    <div class="row g-2">
+                                        <div class="col-md-4">
+                                            <small class="text-muted">Indicateur</small>
+                                            <div id="info-source" class="fw-semibold"></div>
+                                        </div>
+                                        <div class="col-md-2">
+                                            <small class="text-muted">Niveau</small>
+                                            <div id="info-etage" class="fw-semibold"></div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <small class="text-muted">Thème</small>
+                                            <div id="info-theme" class="fw-semibold"></div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <small class="text-muted">Zone</small>
+                                            <div id="info-zone" class="fw-semibold"></div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="row g-3">
+                                    <!-- Année -->
+                                    <div class="col-md-3">
+                                        <label class="form-label fw-bold">
+                                            Année de référence <span class="required-star">*</span>
+                                        </label>
+                                        <input type="number" name="annee_reference" class="form-control" required
+                                               min="1900" max="2100"
+                                               value="{{ donnee_existante.annee_reference|default:annee_courante }}"
+                                               placeholder="Ex : 2027">
+                                        <div class="form-text">Saisissez l'année (ex. 2027, 2028, ...)</div>
+                                    </div>
+
+                                    <!-- Valeur numérique -->
+                                    <div class="col-md-4">
+                                        <label class="form-label fw-bold">Valeur numérique</label>
+                                        <input type="number" step="any" name="valeur_numerique"
+                                               id="input-valeur"
+                                               class="form-control"
+                                               value="{{ donnee_existante.valeur_numerique|default:'' }}"
+                                               placeholder="Ex: 12345.67">
+                                        <div class="form-text" id="hint-valeur"></div>
+                                    </div>
+
+                                    <!-- Unité de mesure — liste contrôlée -->
+                                    <div class="col-md-5">
+                                        <label class="form-label fw-bold">
+                                            Unité de mesure <span class="required-star">*</span>
+                                        </label>
+                                        <select name="unite_saisie" class="form-select" required id="sel-unite">
+                                            <option value="">— Sélectionner l'unité —</option>
+                                            <!-- Unités communes -->
+                                            <optgroup label="━━ Masse / Émissions ━━">
+                                                <option value="Tonne CO2 équivalent">Tonne CO2 équivalent</option>
+                                                <option value="Kilotonne CO2 équivalent">Kilotonne CO2 éq</option>
+                                                <option value="Mégатonne CO2 équivalent">Mégатonne CO2 éq</option>
+                                                <option value="Tonne">Tonne</option>
+                                                <option value="Kilogramme">Kilogramme</option>
+                                                <option value="Gramme">Gramme</option>
+                                            </optgroup>
+                                            <optgroup label="━━ Superficie / Surface ━━">
+                                                <option value="km²">km²</option>
+                                                <option value="Hectare">Hectare</option>
+                                                <option value="m²">m²</option>
+                                            </optgroup>
+                                            <optgroup label="━━ Volume ━━">
+                                                <option value="m³">m³</option>
+                                                <option value="km³">km³</option>
+                                                <option value="Litre">Litre</option>
+                                                <option value="Million m³">Million m³</option>
+                                            </optgroup>
+                                            <optgroup label="━━ Énergie ━━">
+                                                <option value="Tonne équivalent pétrole (tep)">Tonne équivalent pétrole (tep)</option>
+                                                <option value="Kilowattheure (kWh)">Kilowattheure (kWh)</option>
+                                                <option value="Mégawattheure (MWh)">Mégawattheure (MWh)</option>
+                                                <option value="Gigajoule (GJ)">Gigajoule (GJ)</option>
+                                                <option value="Terajoule (TJ)">Terajoule (TJ)</option>
+                                            </optgroup>
+                                            <optgroup label="━━ Température ━━">
+                                                <option value="Degrés Celsius (°C)">Degrés Celsius (°C)</option>
+                                                <option value="Degrés Kelvin (K)">Degrés Kelvin (K)</option>
+                                            </optgroup>
+                                            <optgroup label="━━ Longueur / Distance ━━">
+                                                <option value="km">km</option>
+                                                <option value="m">m</option>
+                                                <option value="mm">mm (précipitations)</option>
+                                            </optgroup>
+                                            <optgroup label="━━ Nombre / Proportion ━━">
+                                                <option value="Nombre">Nombre (sans unité)</option>
+                                                <option value="%">% (pourcentage)</option>
+                                                <option value="Ratio">Ratio</option>
+                                                <option value="Indice">Indice</option>
+                                                <option value="Habitant">Habitant</option>
+                                                <option value="Par habitant">Par habitant</option>
+                                            </optgroup>
+                                            <optgroup label="━━ Monnaie ━━">
+                                                <option value="FCFA">FCFA</option>
+                                                <option value="USD">USD (Dollar américain)</option>
+                                                <option value="EUR">EUR (Euro)</option>
+                                                <option value="Million FCFA">Million FCFA</option>
+                                                <option value="Milliard FCFA">Milliard FCFA</option>
+                                            </optgroup>
+                                            <optgroup label="━━ Temps ━━">
+                                                <option value="Jour">Jour</option>
+                                                <option value="Mois">Mois</option>
+                                                <option value="Année">Année</option>
+                                                <option value="Heure">Heure</option>
+                                            </optgroup>
+                                            <optgroup label="━━ Description ━━">
+                                                <option value="Description">Description (qualitatif)</option>
+                                                <option value="Oui/Non">Oui / Non</option>
+                                                <option value="Score (1-5)">Score (1 à 5)</option>
+                                            </optgroup>
+                                        </select>
+                                        <div class="form-text text-success" id="hint-unite"></div>
+                                    </div>
+
+                                    <!-- Valeur texte -->
+                                    <div class="col-12">
+                                        <label class="form-label fw-bold">
+                                            Valeur textuelle
+                                            <small class="text-muted fw-normal">
+                                                (obligatoire si pas de valeur numérique)
+                                            </small>
+                                        </label>
+                                        <input type="text" name="valeur_texte"
+                                               class="form-control"
+                                               value="{{ donnee_existante.valeur_texte|default:'' }}"
+                                               placeholder="Ex: Données non disponibles / En cours de collecte">
+                                    </div>
+
+                                    <!-- Source de la donnée — liste contrôlée -->
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-bold">
+                                            Institution source <span class="required-star">*</span>
+                                        </label>
+                                        <select name="source_donnee" class="form-select" required>
+                                            <option value="">— Sélectionner la source —</option>
+                                            <optgroup label="━━ Ministères ━━">
+                                                <option value="Ministère de l'Environnement et du Développement Durable">Min. Environnement et Développement Durable</option>
+                                                <option value="Ministère des Eaux et Forêts">Min. Eaux et Forêts</option>
+                                                <option value="Ministère de l'Energie">Min. Energie</option>
+                                                <option value="Ministère de l'Agriculture">Min. Agriculture</option>
+                                                <option value="Ministère de la Santé">Min. Santé</option>
+                                                <option value="Ministère des Transports">Min. Transports</option>
+                                                <option value="Ministère de la Construction">Min. Construction</option>
+                                                <option value="Ministère du Plan">Min. Plan et Développement</option>
+                                            </optgroup>
+                                            <optgroup label="━━ Institutions nationales ━━">
+                                                <option value="Institut National de la Statistique (INS)">Institut National de la Statistique (INS)</option>
+                                                <option value="Agence Nationale De l'Environnement (ANDE)">Agence Nationale De l'Environnement (ANDE)</option>
+                                                <option value="Office Ivoirien des Parcs et Réserves (OIPR)">Office Ivoirien des Parcs et Réserves (OIPR)</option>
+                                                <option value="Société d'Opération Ivoirienne d'Electricité (SOPIE)">SOPIE</option>
+                                                <option value="Centre de Météorologie Nationale">Centre de Météorologie Nationale</option>
+                                            </optgroup>
+                                            <optgroup label="━━ Sources internationales ━━">
+                                                <option value="CCNUCC / UNFCCC">CCNUCC / UNFCCC</option>
+                                                <option value="FAO">FAO</option>
+                                                <option value="Banque Mondiale">Banque Mondiale</option>
+                                                <option value="PNUD">PNUD</option>
+                                                <option value="OMS">OMS</option>
+                                                <option value="GIEC">GIEC</option>
+                                            </optgroup>
+                                            <optgroup label="━━ Autres ━━">
+                                                <option value="Enquête nationale">Enquête nationale</option>
+                                                <option value="Recensement national">Recensement national</option>
+                                                <option value="Télédétection / Satellite">Télédétection / Satellite</option>
+                                                <option value="Modélisation">Modélisation</option>
+                                                <option value="Autre (préciser dans commentaire)">Autre (préciser dans commentaire)</option>
+                                            </optgroup>
+                                        </select>
+                                    </div>
+
+                                    <!-- Méthode de collecte — liste contrôlée -->
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-bold">Méthode de collecte</label>
+                                        <select name="methode_collecte" class="form-select">
+                                            <option value="">— Sélectionner —</option>
+                                            <option value="Inventaire national">Inventaire national</option>
+                                            <option value="Enquête par sondage">Enquête par sondage</option>
+                                            <option value="Recensement exhaustif">Recensement exhaustif</option>
+                                            <option value="Dossiers administratifs">Dossiers administratifs</option>
+                                            <option value="Télédétection et cartographie">Télédétection et cartographie</option>
+                                            <option value="Système de surveillance">Système de surveillance</option>
+                                            <option value="Modélisation / Estimation">Modélisation / Estimation</option>
+                                            <option value="Données calculées / Dérivées">Données calculées / Dérivées</option>
+                                            <option value="Rapport officiel">Rapport officiel</option>
+                                            <option value="Base de données internationale">Base de données internationale</option>
+                                        </select>
+                                    </div>
+
+                                    <!-- Qualité de la donnée -->
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-bold">Niveau de confiance</label>
+                                        <select name="commentaire" class="form-select" id="sel-confiance">
+                                            <option value="">— Sélectionner —</option>
+                                            <option value="Données officielles validées">✅ Données officielles validées</option>
+                                            <option value="Données provisoires">⚠️ Données provisoires</option>
+                                            <option value="Estimation préliminaire">📊 Estimation préliminaire</option>
+                                            <option value="Données partielles">📋 Données partielles</option>
+                                            <option value="Données non disponibles pour cette année">❌ Données non disponibles</option>
+                                        </select>
+                                    </div>
+
+                                    <!-- Commentaire libre -->
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-bold">Commentaire libre</label>
+                                        <input type="text" name="commentaire_libre" class="form-control"
+                                               placeholder="Précisions complémentaires...">
+                                    </div>
+
+                                </div>
+
+                                <!-- Boutons -->
+                                <div class="d-flex gap-2 mt-4 pt-3 border-top">
+                                    <button type="submit" name="action" value="brouillon"
+                                            class="btn btn-secondary">
+                                        <i class="bi bi-save me-2"></i>Enregistrer brouillon
+                                    </button>
+                                    <button type="submit" name="action" value="soumettre"
+                                            class="btn btn-success">
+                                        <i class="bi bi-send me-2"></i>Soumettre pour validation
+                                    </button>
+                                    <a href="{% url 'agents:dashboard' %}" class="btn btn-outline-secondary ms-auto">
+                                        Annuler
+                                    </a>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Panneau latéral -->
+                <div class="col-lg-4">
+                    <!-- Aide -->
+                    <div class="card mb-3">
+                        <div class="card-header">
+                            <i class="bi bi-question-circle me-2"></i>Guide de saisie
+                        </div>
+                        <div class="card-body" style="font-size:0.85rem;">
+                            <p><strong>1. Sélectionnez l'indicateur</strong> dans la liste — les informations s'affichent automatiquement.</p>
+                            <p><strong>2. Choisissez l'année</strong> de référence de la donnée.</p>
+                            <p><strong>3. Saisissez la valeur</strong> numérique si disponible, sinon une valeur textuelle.</p>
+                            <p><strong>4. Sélectionnez l'unité</strong> dans la liste — elle doit correspondre à l'unité recommandée.</p>
+                            <p><strong>5. Indiquez la source</strong> officielle de la donnée.</p>
+                            <hr>
+                            <p class="text-muted mb-0">
+                                <strong>Brouillon</strong> : sauvegardé, modifiable.<br>
+                                <strong>Soumettre</strong> : envoyé à validation, non modifiable.
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Donnée existante -->
+                    {% if donnee_existante %}
+                    <div class="card border-warning">
+                        <div class="card-header text-warning">
+                            <i class="bi bi-exclamation-triangle me-2"></i>Donnée existante
+                        </div>
+                        <div class="card-body" style="font-size:0.85rem;">
+                            <p class="text-muted mb-2">Une donnée existe déjà pour cet indicateur :</p>
+                            <table class="table table-sm mb-0">
+                                <tr>
+                                    <td class="text-muted">Année</td>
+                                    <td>{{ donnee_existante.annee_reference }}</td>
+                                </tr>
+                                <tr>
+                                    <td class="text-muted">Valeur</td>
+                                    <td>{{ donnee_existante.valeur_numerique|default:donnee_existante.valeur_texte }}</td>
+                                </tr>
+                                <tr>
+                                    <td class="text-muted">Unité</td>
+                                    <td>{{ donnee_existante.unite_saisie|default:"-" }}</td>
+                                </tr>
+                                <tr>
+                                    <td class="text-muted">Statut</td>
+                                    <td>
+                                        <span class="badge badge-{{ donnee_existante.statut }}">
+                                            {{ donnee_existante.get_statut_display }}
+                                        </span>
+                                    </td>
+                                </tr>
+                            </table>
+                            <p class="text-warning mt-2 mb-0" style="font-size:0.8rem;">
+                                <i class="bi bi-info-circle me-1"></i>
+                                La nouvelle saisie remplacera cette donnée.
+                            </p>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const selInd      = document.getElementById('sel-indicateur');
+const fSource     = document.getElementById('filtre-source');
+const fZone       = document.getElementById('filtre-zone');
+const fEtage      = document.getElementById('filtre-etage');
+const fRecherche  = document.getElementById('filtre-recherche');
+const fCompteur   = document.getElementById('filtre-compteur');
+const fReset      = document.getElementById('filtre-reset');
+
+const allOptions  = Array.from(selInd.options).slice(1);
+const allZones    = [...new Set(allOptions.map(o => o.dataset.zone).filter(Boolean))].sort();
+
+function buildZoneFilter() {
+    const src = fSource.value;
+    const zones = src
+        ? [...new Set(allOptions.filter(o => o.dataset.source === src).map(o => o.dataset.zone).filter(Boolean))].sort()
+        : allZones;
+    const prev = fZone.value;
+    let placeholder = 'Toutes';
+    if (src === 'CISAT') placeholder = 'Toutes les zones';
+    else if (src === 'BASICSET') placeholder = 'Toutes les composantes';
+    fZone.innerHTML = '<option value="">' + placeholder + '</option>';
+    zones.forEach(z => {
+        const opt = document.createElement('option');
+        opt.value = z;
+        opt.textContent = z;
+        if (z === prev) opt.selected = true;
+        fZone.appendChild(opt);
+    });
+}
+
+function applyFilters() {
+    const src   = fSource.value;
+    const zone  = fZone.value;
+    const etage = fEtage.value;
+    const q     = fRecherche.value.toLowerCase().trim();
+
+    let count = 0;
+    selInd.value = '';
+    document.getElementById('info-indicateur').style.display = 'none';
+
+    allOptions.forEach(opt => {
+        let show = true;
+        if (src   && opt.dataset.source !== src)   show = false;
+        if (zone  && opt.dataset.zone   !== zone)  show = false;
+        if (etage && opt.dataset.etage  !== etage) show = false;
+        if (q     && !opt.dataset.nom.includes(q) && !opt.textContent.toLowerCase().includes(q)) show = false;
+
+        opt.hidden = !show;
+        opt.disabled = !show;
+        if (show) count++;
+    });
+
+    fCompteur.innerHTML = '<strong>' + count + '</strong> indicateur' + (count > 1 ? 's' : '') + ' disponible' + (count > 1 ? 's' : '');
+    fReset.style.display = (src || zone || etage || q) ? 'inline' : 'none';
+}
+
+fSource.addEventListener('change', () => { buildZoneFilter(); applyFilters(); });
+fZone.addEventListener('change', applyFilters);
+fEtage.addEventListener('change', applyFilters);
+fRecherche.addEventListener('input', applyFilters);
+fReset.addEventListener('click', (e) => {
+    e.preventDefault();
+    fSource.value = ''; fZone.value = ''; fEtage.value = ''; fRecherche.value = '';
+    buildZoneFilter();
+    applyFilters();
+});
+
+buildZoneFilter();
+
+const uniteMap = {
+    'Masse': 'Tonne CO2 équivalent',
+    'Degrés': 'Degrés Celsius (°C)',
+    'Hauteur': 'mm (précipitations)',
+    'Superficie': 'km²',
+    'Volume': 'm³',
+    'Nombre': 'Nombre',
+    'Monnaie': 'FCFA',
+    'Longueur': 'km',
+    'Vitesse': 'm/s',
+    'Concentration': 'Nombre',
+    'Description': 'Description',
+    'Pourcentage': '%',
+    'Pourcentage, ratio': '%',
+};
+
+function updateIndicateurInfo(sel) {
+    const opt = sel.options[sel.selectedIndex];
+    if (!opt || !opt.value) {
+        document.getElementById('info-indicateur').style.display = 'none';
+        return;
+    }
+
+    document.getElementById('info-indicateur').style.display = 'block';
+    document.getElementById('info-source').textContent  = opt.dataset.source || '-';
+    document.getElementById('info-etage').textContent   = 'Niveau ' + (opt.dataset.etage || '-');
+    document.getElementById('info-theme').textContent   = opt.dataset.theme || '-';
+    document.getElementById('info-zone').textContent    = opt.dataset.zone || '-';
+
+    const uniteRec = opt.dataset.unite;
+    const selUnite = document.getElementById('sel-unite');
+    const hintUnite = document.getElementById('hint-unite');
+
+    if (uniteRec) {
+        let found = false;
+        for (let i = 0; i < selUnite.options.length; i++) {
+            if (selUnite.options[i].value === uniteRec ||
+                selUnite.options[i].value.toLowerCase().includes(uniteRec.toLowerCase())) {
+                selUnite.selectedIndex = i;
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            for (const [key, val] of Object.entries(uniteMap)) {
+                if (uniteRec.toLowerCase().includes(key.toLowerCase())) {
+                    for (let i = 0; i < selUnite.options.length; i++) {
+                        if (selUnite.options[i].value === val) {
+                            selUnite.selectedIndex = i;
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (found) break;
+                }
+            }
+        }
+        hintUnite.textContent = uniteRec ? 'Unite recommandee : ' + uniteRec : '';
+    }
+}
+
+document.getElementById('form-saisie').addEventListener('submit', function(e) {
+    const valNum = document.querySelector('[name=valeur_numerique]').value;
+    const valTxt = document.querySelector('[name=valeur_texte]').value;
+    if (!valNum && !valTxt) {
+        e.preventDefault();
+        alert('Veuillez saisir au moins une valeur numerique ou une valeur textuelle.');
+        return false;
+    }
+});
+
+window.addEventListener('load', function() {
+    if (selInd.value) updateIndicateurInfo(selInd);
+});
+</script>
+{% endblock %}

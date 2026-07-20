@@ -1,0 +1,190 @@
+{% extends 'base.html' %}
+{% block title %}{% if mode == 'creer' %}Créer un agent{% else %}Modifier {{ agent.prenom }} {{ agent.nom }}{% endif %}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+
+        <!-- SIDEBAR -->
+        <div class="col-md-2 px-0 sidebar">
+            <div class="user-info mt-2">
+                <div class="user-name">{{ user.prenom }} {{ user.nom }}</div>
+                <div class="user-role">{{ user.role }}</div>
+            </div>
+            <div class="sidebar-title">Navigation</div>
+            <nav class="nav flex-column">
+                <a class="nav-link" href="{% url 'agents:dashboard' %}"><i class="bi bi-speedometer2"></i>Tableau de bord</a>
+                <a class="nav-link" href="{% url 'agents:saisie' %}"><i class="bi bi-plus-circle"></i>Saisir une donnée</a>
+                <a class="nav-link" href="{% url 'agents:mes_donnees' %}"><i class="bi bi-table"></i>Mes données</a>
+                <div class="sidebar-title mt-2">Administration</div>
+                <a class="nav-link" href="{% url 'agents:validation' %}"><i class="bi bi-check-circle"></i>Validation</a>
+                <a class="nav-link active" href="{% url 'agents:liste_agents' %}"><i class="bi bi-people"></i>Gestion agents</a>
+                <a class="nav-link" href="{% url 'agents:gestion_indicateurs' %}"><i class="bi bi-journal-text"></i>Gestion indicateurs</a>
+                <div class="sidebar-title mt-2">Public</div>
+                <a class="nav-link" href="{% url 'public:accueil' %}"><i class="bi bi-house"></i>Site public</a>
+                <a class="nav-link text-warning" href="{% url 'agents:logout' %}"><i class="bi bi-box-arrow-right"></i>Déconnexion</a>
+            </nav>
+        </div>
+
+        <!-- CONTENU -->
+        <div class="col-md-10 p-4">
+
+            <div class="d-flex align-items-center mb-4">
+                <a href="{% url 'agents:liste_agents' %}" class="btn btn-outline-secondary btn-sm me-3">
+                    <i class="bi bi-arrow-left"></i>
+                </a>
+                <h4 class="mb-0">
+                    {% if mode == 'creer' %}
+                    <i class="bi bi-person-plus me-2 text-success"></i>Créer un agent
+                    {% else %}
+                    <i class="bi bi-pencil me-2 text-primary"></i>Modifier — {{ agent.prenom }} {{ agent.nom }}
+                    {% endif %}
+                </h4>
+            </div>
+
+            <div class="row justify-content-center">
+                <div class="col-lg-8">
+                    <div class="card">
+                        <div class="card-body p-4">
+                            <form method="post">
+                                {% csrf_token %}
+
+                                <div class="row g-3 mb-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-semibold">Prénom <span class="text-danger">*</span></label>
+                                        <input type="text" name="prenom" class="form-control"
+                                               value="{% if mode == 'modifier' %}{{ agent.prenom }}{% endif %}"
+                                               required>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-semibold">Nom <span class="text-danger">*</span></label>
+                                        <input type="text" name="nom" class="form-control"
+                                               value="{% if mode == 'modifier' %}{{ agent.nom }}{% endif %}"
+                                               required>
+                                    </div>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label fw-semibold">Email <span class="text-danger">*</span></label>
+                                    <input type="email" name="email" class="form-control"
+                                           value="{% if mode == 'modifier' %}{{ agent.email }}{% endif %}"
+                                           required>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label fw-semibold">
+                                        Mot de passe
+                                        {% if mode == 'creer' %}<span class="text-danger">*</span>{% endif %}
+                                    </label>
+                                    <div class="input-group">
+                                        <input type="password" name="password" id="password-field" class="form-control"
+                                               {% if mode == 'creer' %}required{% endif %}
+                                               placeholder="{% if mode == 'modifier' %}Laisser vide pour ne pas changer{% endif %}">
+                                        <button class="btn btn-outline-secondary" type="button" id="toggle-password">
+                                            <i class="bi bi-eye" id="eye-icon"></i>
+                                        </button>
+                                    </div>
+                                    {% if mode == 'modifier' %}
+                                    <div class="form-text">Laissez vide pour conserver le mot de passe actuel.</div>
+                                    {% endif %}
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label fw-semibold">Institution</label>
+                                    <input type="text" name="institution" class="form-control"
+                                           value="{% if mode == 'modifier' %}{{ agent.institution|default:'' }}{% endif %}">
+                                </div>
+
+                                <div class="row g-3 mb-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-semibold">Pays</label>
+                                        <select name="pays" class="form-select">
+                                            <option value="">— Sélectionner —</option>
+                                            {% for p in pays_list %}
+                                            <option value="{{ p.id }}"
+                                                {% if mode == 'modifier' and agent.pays_id == p.id %}selected{% endif %}>
+                                                {{ p.nom }}
+                                            </option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-semibold">Rôle <span class="text-danger">*</span></label>
+                                        <select name="role" class="form-select">
+                                            <option value="collecteur"
+                                                {% if mode == 'modifier' and agent.role == 'collecteur' %}selected{% endif %}>
+                                                Collecteur
+                                            </option>
+                                            <option value="admin"
+                                                {% if mode == 'modifier' and agent.role == 'admin' %}selected{% endif %}>
+                                                Administrateur
+                                            </option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                {% if mode == 'modifier' %}
+                                <div class="mb-3">
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" name="actif" id="actif-check"
+                                               {% if agent.actif %}checked{% endif %}>
+                                        <label class="form-check-label fw-semibold" for="actif-check">
+                                            Compte actif
+                                        </label>
+                                    </div>
+                                    <div class="form-text">Un compte inactif ne pourra plus se connecter.</div>
+                                </div>
+                                {% endif %}
+
+                                <hr>
+
+                                <div class="d-flex justify-content-between">
+                                    <a href="{% url 'agents:liste_agents' %}" class="btn btn-outline-secondary">
+                                        <i class="bi bi-x-circle me-1"></i>Annuler
+                                    </a>
+                                    <button type="submit" class="btn btn-primary">
+                                        {% if mode == 'creer' %}
+                                        <i class="bi bi-person-plus me-1"></i>Créer l'agent
+                                        {% else %}
+                                        <i class="bi bi-check-lg me-1"></i>Enregistrer
+                                        {% endif %}
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
+                    {% if mode == 'modifier' %}
+                    <div class="card mt-3 border-0">
+                        <div class="card-body text-muted" style="font-size:.85rem;">
+                            <i class="bi bi-info-circle me-1"></i>
+                            Créé le {{ agent.cree_le|date:"d/m/Y à H:i" }}
+                            {% if agent.derniere_connexion %}
+                            — Dernière connexion : {{ agent.derniere_connexion|date:"d/m/Y à H:i" }}
+                            {% else %}
+                            — Aucune connexion enregistrée
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('toggle-password').addEventListener('click', function() {
+    const field = document.getElementById('password-field');
+    const icon  = document.getElementById('eye-icon');
+    if (field.type === 'password') {
+        field.type = 'text';
+        icon.classList.replace('bi-eye', 'bi-eye-slash');
+    } else {
+        field.type = 'password';
+        icon.classList.replace('bi-eye-slash', 'bi-eye');
+    }
+});
+</script>
+{% endblock %}

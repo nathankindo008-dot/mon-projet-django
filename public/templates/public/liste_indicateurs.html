@@ -1,0 +1,345 @@
+{% extends 'base.html' %}
+
+{% block title %}Indicateurs — Côte d'Ivoire{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h4 class="mb-0">
+            <i class="bi bi-list-ul me-2 text-primary"></i>
+            Indicateurs climatiques et environnementaux
+        </h4>
+        <div class="d-flex align-items-center gap-2">
+            <span class="badge bg-secondary fs-6">{{ total }} résultats</span>
+            <div class="dropdown">
+                <button class="btn btn-outline-success btn-sm dropdown-toggle" type="button"
+                        data-bs-toggle="dropdown">
+                    <i class="bi bi-download me-1"></i>Télécharger
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end">
+                    <li>
+                        <a class="dropdown-item" href="{% url 'public:export_indicateurs' %}?format=csv&q={{ recherche }}&source={{ source }}&zone={{ zone }}&etage={{ etage }}">
+                            <i class="bi bi-filetype-csv me-2 text-success"></i>Export CSV
+                        </a>
+                    </li>
+                    <li>
+                        <a class="dropdown-item" href="{% url 'public:export_indicateurs' %}?format=excel&q={{ recherche }}&source={{ source }}&zone={{ zone }}&etage={{ etage }}">
+                            <i class="bi bi-file-earmark-excel me-2 text-success"></i>Export Excel
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- FILTRES -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="GET" class="row g-3">
+                <div class="col-md-4 position-relative">
+                    <input type="text" name="q" id="search-input" value="{{ recherche }}"
+                           class="form-control" placeholder="Rechercher un indicateur..."
+                           autocomplete="off">
+                    <div id="autocomplete-list" class="autocomplete-dropdown"></div>
+                </div>
+                <div class="col-md-2">
+                    <select name="source" id="filtre-source" class="form-select">
+                        <option value="">Tous les indicateurs</option>
+                        <option value="CISAT"    {% if source == 'CISAT' %}selected{% endif %}>Climatique</option>
+                        <option value="BASICSET" {% if source == 'BASICSET' %}selected{% endif %}>Environnemental</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <select name="zone" id="filtre-zone" class="form-select">
+                        <option value="">Catégories d'indicateurs</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <select name="etage" class="form-select">
+                        <option value="">Tous niveaux</option>
+                        <option value="1" {% if etage == '1' %}selected{% endif %}>Niveau 1</option>
+                        <option value="2" {% if etage == '2' %}selected{% endif %}>Niveau 2</option>
+                        <option value="3" {% if etage == '3' %}selected{% endif %}>Niveau 3</option>
+                    </select>
+                </div>
+                <div class="col-md-1">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-search"></i>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- TABLEAU -->
+    <div class="card">
+        <div class="card-body p-0">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th style="width:50%">Indicateur</th>
+                        <th>Indicateur</th>
+                        <th>Catégorie</th>
+                        <th>Niveau</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ind in page_obj %}
+                    <tr class="table-row-link" onclick="window.location='{% url 'public:detail_indicateur' ind.pk %}'" style="cursor:pointer;">
+                        <td>
+                            <a href="{% url 'public:detail_indicateur' ind.pk %}" class="text-decoration-none text-dark">
+                                <div class="fw-semibold" style="font-size:0.9rem;">
+                                    {{ ind.nom|truncatechars:80 }}
+                                </div>
+                                {% if ind.theme %}
+                                <small class="text-muted">{{ ind.theme }}</small>
+                                {% endif %}
+                            </a>
+                        </td>
+                        <td>
+                            {% if ind.source == 'CISAT' %}
+                            <span class="badge bg-primary">Climatique</span>
+                            {% else %}
+                            <span class="badge bg-secondary">Environnemental</span>
+                            {% endif %}
+                        </td>
+                        <td style="font-size:0.85rem;">
+                            {% if ind.zone_cisat %}
+                                {{ ind.zone_cisat }}
+                            {% elif ind.composante_basicset %}
+                                {{ ind.composante_basicset|truncatechars:40 }}
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if ind.etage == 1 %}
+                            <span class="badge bg-success">Niv. 1</span>
+                            {% elif ind.etage == 2 %}
+                            <span class="badge bg-warning text-dark">Niv. 2</span>
+                            {% else %}
+                            <span class="badge bg-light text-dark">Niv. 3</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" class="text-center text-muted py-4">
+                            <i class="bi bi-inbox fs-3 d-block mb-2"></i>
+                            Aucun indicateur trouvé
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- PAGINATION -->
+    {% if page_obj.has_other_pages %}
+    <nav class="mt-4">
+        <ul class="pagination justify-content-center">
+            {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}&q={{ recherche }}&source={{ source }}&zone={{ zone }}&etage={{ etage }}">
+                    <i class="bi bi-chevron-left"></i>
+                </a>
+            </li>
+            {% endif %}
+            {% for num in page_obj.paginator.page_range %}
+                {% if page_obj.number == num %}
+                <li class="page-item active">
+                    <span class="page-link">{{ num }}</span>
+                </li>
+                {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ num }}&q={{ recherche }}&source={{ source }}&zone={{ zone }}&etage={{ etage }}">{{ num }}</a>
+                </li>
+                {% endif %}
+            {% endfor %}
+            {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}&q={{ recherche }}&source={{ source }}&zone={{ zone }}&etage={{ etage }}">
+                    <i class="bi bi-chevron-right"></i>
+                </a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .table-row-link:hover td {
+        background-color: #e8f4fd;
+        transition: background-color 0.15s;
+    }
+    .autocomplete-dropdown {
+        display: none;
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        z-index: 1050;
+        background: #fff;
+        border: 1px solid #dee2e6;
+        border-top: none;
+        border-radius: 0 0 8px 8px;
+        box-shadow: 0 6px 16px rgba(0,0,0,0.15);
+        max-height: 320px;
+        overflow-y: auto;
+    }
+    .autocomplete-dropdown.show { display: block; }
+    .autocomplete-item {
+        display: block;
+        padding: 10px 14px;
+        text-decoration: none;
+        color: #333;
+        border-bottom: 1px solid #f0f0f0;
+        transition: background 0.15s;
+    }
+    .autocomplete-item:last-child { border-bottom: none; }
+    .autocomplete-item:hover,
+    .autocomplete-item.active {
+        background-color: #e8f5e9;
+        color: #1a3a5c;
+    }
+    .autocomplete-item .item-name {
+        font-weight: 600;
+        font-size: 0.9rem;
+    }
+    .autocomplete-item .item-meta {
+        font-size: 0.78rem;
+        color: #888;
+        margin-top: 2px;
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+    const ZONES_CISAT = {{ zones_json }};
+    const COMPOSANTES_BS = {{ composantes_json }};
+    const sourceSelect = document.getElementById('filtre-source');
+    const zoneSelect = document.getElementById('filtre-zone');
+    const currentZone = '{{ zone|escapejs }}';
+    const currentSource = '{{ source|escapejs }}';
+
+    function updateZoneFilter() {
+        const src = sourceSelect.value;
+        let options, placeholder;
+
+        if (src === 'CISAT') {
+            options = ZONES_CISAT;
+            placeholder = 'Toutes les zones';
+        } else if (src === 'BASICSET') {
+            options = COMPOSANTES_BS;
+            placeholder = 'Toutes les composantes';
+        } else {
+            options = ZONES_CISAT.concat(COMPOSANTES_BS);
+            placeholder = "Catégories d'indicateurs";
+        }
+
+        zoneSelect.innerHTML = '<option value="">' + placeholder + '</option>';
+        options.forEach(function(opt) {
+            const el = document.createElement('option');
+            el.value = opt;
+            el.textContent = opt;
+            if (opt === currentZone) el.selected = true;
+            zoneSelect.appendChild(el);
+        });
+    }
+
+    sourceSelect.addEventListener('change', function() {
+        zoneSelect.value = '';
+        updateZoneFilter();
+    });
+
+    updateZoneFilter();
+})();
+
+(function() {
+    const input = document.getElementById('search-input');
+    const dropdown = document.getElementById('autocomplete-list');
+    let debounceTimer = null;
+    let activeIndex = -1;
+
+    input.addEventListener('input', function() {
+        clearTimeout(debounceTimer);
+        const q = this.value.trim();
+        if (q.length < 2) {
+            dropdown.classList.remove('show');
+            dropdown.innerHTML = '';
+            return;
+        }
+        debounceTimer = setTimeout(() => fetchSuggestions(q), 250);
+    });
+
+    function fetchSuggestions(q) {
+        fetch('{% url "public:autocomplete_indicateurs" %}?q=' + encodeURIComponent(q))
+            .then(r => r.json())
+            .then(data => {
+                activeIndex = -1;
+                if (!data.length) {
+                    dropdown.classList.remove('show');
+                    dropdown.innerHTML = '';
+                    return;
+                }
+                dropdown.innerHTML = data.map((item, i) => {
+                    const badge = item.source
+                        ? '<span class="badge bg-secondary ms-2" style="font-size:.7rem">' + item.source + '</span>'
+                        : '';
+                    const theme = item.theme
+                        ? '<div class="item-meta">' + item.theme + '</div>'
+                        : '';
+                    return '<a href="/indicateurs/' + item.id + '/" class="autocomplete-item" data-index="' + i + '">'
+                         + '<div class="item-name">' + escapeHtml(item.nom) + badge + '</div>'
+                         + theme
+                         + '</a>';
+                }).join('');
+                dropdown.classList.add('show');
+            });
+    }
+
+    input.addEventListener('keydown', function(e) {
+        const items = dropdown.querySelectorAll('.autocomplete-item');
+        if (!items.length) return;
+
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            activeIndex = Math.min(activeIndex + 1, items.length - 1);
+            updateActive(items);
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            activeIndex = Math.max(activeIndex - 1, 0);
+            updateActive(items);
+        } else if (e.key === 'Enter' && activeIndex >= 0) {
+            e.preventDefault();
+            items[activeIndex].click();
+        } else if (e.key === 'Escape') {
+            dropdown.classList.remove('show');
+        }
+    });
+
+    function updateActive(items) {
+        items.forEach((el, i) => el.classList.toggle('active', i === activeIndex));
+        if (items[activeIndex]) items[activeIndex].scrollIntoView({block: 'nearest'});
+    }
+
+    document.addEventListener('click', function(e) {
+        if (!input.contains(e.target) && !dropdown.contains(e.target)) {
+            dropdown.classList.remove('show');
+        }
+    });
+
+    function escapeHtml(str) {
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    }
+})();
+</script>
+{% endblock %}

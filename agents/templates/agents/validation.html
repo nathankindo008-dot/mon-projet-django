@@ -1,0 +1,306 @@
+{% extends 'base.html' %}
+{% block title %}Validation{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-2 px-0 sidebar">
+            <div class="user-info mt-2">
+                <div class="user-name">{{ user.prenom }} {{ user.nom }}</div>
+                <div class="user-role">Administrateur</div>
+            </div>
+            <div class="sidebar-title">Navigation</div>
+            <nav class="nav flex-column">
+                <a class="nav-link" href="{% url 'agents:dashboard' %}"><i class="bi bi-speedometer2"></i>Tableau de bord</a>
+                <a class="nav-link" href="{% url 'agents:saisie' %}"><i class="bi bi-plus-circle"></i>Saisir une donnée</a>
+                <a class="nav-link" href="{% url 'agents:mes_donnees' %}"><i class="bi bi-table"></i>Mes données</a>
+                <div class="sidebar-title mt-2">Administration</div>
+                <a class="nav-link active" href="{% url 'agents:validation' %}"><i class="bi bi-check-circle"></i>Validation</a>
+                <a class="nav-link" href="{% url 'agents:liste_agents' %}"><i class="bi bi-people"></i>Gestion agents</a>
+                <a class="nav-link" href="{% url 'agents:gestion_indicateurs' %}"><i class="bi bi-journal-text"></i>Gestion indicateurs</a>
+                <div class="sidebar-title mt-2">Public</div>
+                <a class="nav-link" href="{% url 'public:accueil' %}"><i class="bi bi-house"></i>Site public</a>
+                <a class="nav-link text-warning" href="{% url 'agents:logout' %}"><i class="bi bi-box-arrow-right"></i>Déconnexion</a>
+            </nav>
+        </div>
+
+        <div class="col-md-10 p-4">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h4 class="mb-0">
+                    <i class="bi bi-check-circle me-2 text-success"></i>
+                    Validation des données
+                </h4>
+                <span class="badge bg-warning text-dark fs-6">
+                    {{ total }} donnée{{ total|pluralize }} en attente
+                </span>
+            </div>
+
+            <div class="card">
+                <div class="card-body p-0">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>Indicateur</th>
+                                <th>Agent</th>
+                                <th>Année</th>
+                                <th>Valeur</th>
+                                <th>Indicateur</th>
+                                <th>Soumis le</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for d in page_obj %}
+                            <tr>
+                                <td style="font-size:0.85rem;">
+                                    <div class="fw-semibold">{{ d.indicateur.nom|truncatechars:50 }}</div>
+                                    <small class="text-muted">
+                                        {{ d.indicateur.source }} — Niveau {{ d.indicateur.etage }}
+                                    </small>
+                                </td>
+                                <td style="font-size:0.85rem;">
+                                    {{ d.utilisateur.prenom }} {{ d.utilisateur.nom }}<br>
+                                    <small class="text-muted">{{ d.utilisateur.institution|default:"" }}</small>
+                                </td>
+                                <td>{{ d.annee_reference }}</td>
+                                <td>
+                                    {% if d.valeur_numerique %}
+                                        <strong>{{ d.valeur_numerique }}</strong>
+                                        {% if d.unite_saisie %}
+                                        <small class="text-muted">{{ d.unite_saisie }}</small>
+                                        {% endif %}
+                                    {% else %}
+                                        {{ d.valeur_texte|truncatechars:30 }}
+                                    {% endif %}
+                                    {% if d.commentaire %}
+                                    <br><small class="text-muted fst-italic">{{ d.commentaire|truncatechars:40 }}</small>
+                                    {% endif %}
+                                </td>
+                                <td style="font-size:0.8rem;">{{ d.source_donnee|default:"-"|truncatechars:30 }}</td>
+                                <td style="font-size:0.8rem;" class="text-muted">
+                                    {{ d.cree_le|date:"d/m/Y" }}
+                                </td>
+                                <td>
+                                    <div class="d-flex gap-1">
+                                        <!-- Voir -->
+                                        <button type="button" class="btn btn-outline-primary btn-sm"
+                                                title="Voir les détails"
+                                                data-bs-toggle="modal"
+                                                data-bs-target="#modalDetails{{ d.pk }}">
+                                            <i class="bi bi-eye"></i>
+                                        </button>
+                                        <!-- Valider -->
+                                        <form method="POST" action="{% url 'agents:valider_donnee' d.pk %}">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn btn-success btn-sm"
+                                                    title="Valider">
+                                                <i class="bi bi-check-lg"></i>
+                                            </button>
+                                        </form>
+                                        <!-- Rejeter -->
+                                        <button type="button" class="btn btn-danger btn-sm"
+                                                title="Rejeter"
+                                                data-bs-toggle="modal"
+                                                data-bs-target="#modalRejet{{ d.pk }}">
+                                            <i class="bi bi-x-lg"></i>
+                                        </button>
+                                        <!-- Supprimer -->
+                                        <button type="button" class="btn btn-outline-danger btn-sm"
+                                                title="Supprimer"
+                                                data-bs-toggle="modal"
+                                                data-bs-target="#modalSuppr{{ d.pk }}">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </div>
+
+                                    <!-- Modal détails -->
+                                    <div class="modal fade" id="modalDetails{{ d.pk }}" tabindex="-1">
+                                        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                                            <div class="modal-content">
+                                                <div class="modal-header bg-primary text-white">
+                                                    <h5 class="modal-title">
+                                                        <i class="bi bi-eye me-2"></i>Détails de la donnée
+                                                    </h5>
+                                                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                                                </div>
+                                                <div class="modal-body">
+                                                    <div class="mb-3">
+                                                        <strong>Indicateur</strong><br>
+                                                        {{ d.indicateur.nom }}<br>
+                                                        <small class="text-muted">{{ d.indicateur.source }} — Niveau {{ d.indicateur.etage }}</small>
+                                                    </div>
+                                                    <div class="row g-3 mb-3">
+                                                        <div class="col-md-4">
+                                                            <div class="text-muted">Année</div>
+                                                            <div class="fw-semibold">{{ d.annee_reference }}</div>
+                                                        </div>
+                                                        <div class="col-md-4">
+                                                            <div class="text-muted">Soumis par</div>
+                                                            <div class="fw-semibold">{{ d.utilisateur.prenom }} {{ d.utilisateur.nom }}</div>
+                                                        </div>
+                                                        <div class="col-md-4">
+                                                            <div class="text-muted">Soumis le</div>
+                                                            <div class="fw-semibold">{{ d.cree_le|date:"d/m/Y H:i" }}</div>
+                                                        </div>
+                                                    </div>
+                                                    <div class="row g-3 mb-3">
+                                                        <div class="col-md-4">
+                                                            <div class="text-muted">Valeur numérique</div>
+                                                            <div class="fw-semibold">{{ d.valeur_numerique|default:"-" }}</div>
+                                                        </div>
+                                                        <div class="col-md-4">
+                                                            <div class="text-muted">Valeur texte</div>
+                                                            <div class="fw-semibold">{{ d.valeur_texte|default:"-" }}</div>
+                                                        </div>
+                                                        <div class="col-md-4">
+                                                            <div class="text-muted">Unité</div>
+                                                            <div class="fw-semibold">{{ d.unite_saisie|default:"-" }}</div>
+                                                        </div>
+                                                    </div>
+                                                    <div class="mb-3">
+                                                        <div class="text-muted">Source de la donnée</div>
+                                                        <div class="fw-semibold">{{ d.source_donnee|default:"-" }}</div>
+                                                    </div>
+                                                    <div class="mb-3">
+                                                        <div class="text-muted">Méthode de collecte</div>
+                                                        <div class="fw-semibold">{{ d.methode_collecte|default:"-" }}</div>
+                                                    </div>
+                                                    <div class="mb-3">
+                                                        <div class="text-muted">Commentaire</div>
+                                                        <div class="fw-semibold">{{ d.commentaire|default:"-" }}</div>
+                                                    </div>
+                                                    <div class="mb-3">
+                                                        <div class="text-muted">Statut</div>
+                                                        <div class="fw-semibold">{{ d.statut|capfirst }}</div>
+                                                    </div>
+                                                </div>
+                                                <div class="modal-footer">
+                                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
+                                                    <form method="POST" action="{% url 'agents:valider_donnee' d.pk %}" class="d-inline">
+                                                        {% csrf_token %}
+                                                        <button type="submit" class="btn btn-success">
+                                                            <i class="bi bi-check-lg me-1"></i>Valider
+                                                        </button>
+                                                    </form>
+                                                    <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#modalRejet{{ d.pk }}" data-bs-dismiss="modal">
+                                                        <i class="bi bi-x-lg me-1"></i>Rejeter
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Modal rejet -->
+                                    <div class="modal fade" id="modalRejet{{ d.pk }}" tabindex="-1">
+                                        <div class="modal-dialog">
+                                            <div class="modal-content">
+                                                <div class="modal-header">
+                                                    <h5 class="modal-title text-danger">
+                                                        <i class="bi bi-x-circle me-2"></i>Rejeter la donnée
+                                                    </h5>
+                                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                                </div>
+                                                <form method="POST" action="{% url 'agents:rejeter_donnee' d.pk %}">
+                                                    {% csrf_token %}
+                                                    <div class="modal-body">
+                                                        <p class="text-muted" style="font-size:0.9rem;">
+                                                            <strong>{{ d.indicateur.nom|truncatechars:60 }}</strong><br>
+                                                            Année {{ d.annee_reference }} — {{ d.utilisateur.prenom }} {{ d.utilisateur.nom }}
+                                                        </p>
+                                                        <div class="mb-3">
+                                                            <label class="form-label fw-bold">
+                                                                Motif du rejet <span class="text-danger">*</span>
+                                                            </label>
+                                                            <textarea name="motif" class="form-control" rows="3"
+                                                                      placeholder="Expliquez pourquoi cette donnée est rejetée..."
+                                                                      required></textarea>
+                                                        </div>
+                                                    </div>
+                                                    <div class="modal-footer">
+                                                        <button type="button" class="btn btn-secondary"
+                                                                data-bs-dismiss="modal">Annuler</button>
+                                                        <button type="submit" class="btn btn-danger">
+                                                            <i class="bi bi-x-circle me-1"></i>Confirmer le rejet
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Modal suppression -->
+                                    <div class="modal fade" id="modalSuppr{{ d.pk }}" tabindex="-1">
+                                        <div class="modal-dialog modal-dialog-centered">
+                                            <div class="modal-content">
+                                                <div class="modal-header bg-danger text-white">
+                                                    <h6 class="modal-title">
+                                                        <i class="bi bi-exclamation-triangle me-2"></i>Supprimer la donnée
+                                                    </h6>
+                                                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                                                </div>
+                                                <div class="modal-body">
+                                                    <p>Supprimer définitivement cette donnée ?</p>
+                                                    <div class="bg-light p-2 rounded" style="font-size:.9rem;">
+                                                        <strong>{{ d.indicateur.nom|truncatechars:60 }}</strong><br>
+                                                        Année {{ d.annee_reference }} — {{ d.utilisateur.prenom }} {{ d.utilisateur.nom }}
+                                                        {% if d.valeur_numerique %}<br>Valeur : {{ d.valeur_numerique }}{% endif %}
+                                                    </div>
+                                                    <div class="text-danger mt-2" style="font-size:.85rem;">
+                                                        <i class="bi bi-info-circle me-1"></i>Cette action est irréversible.
+                                                    </div>
+                                                </div>
+                                                <div class="modal-footer">
+                                                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Annuler</button>
+                                                    <form method="POST" action="{% url 'agents:supprimer_donnee' d.pk %}">
+                                                        {% csrf_token %}
+                                                        <button type="submit" class="btn btn-danger btn-sm">
+                                                            <i class="bi bi-trash me-1"></i>Supprimer
+                                                        </button>
+                                                    </form>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="7" class="text-center text-muted py-5">
+                                    <i class="bi bi-check-circle text-success fs-2 d-block mb-2"></i>
+                                    <strong>Tout est à jour !</strong><br>
+                                    Aucune donnée en attente de validation.
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            {% if page_obj.has_other_pages %}
+            <nav class="mt-3">
+                <ul class="pagination justify-content-center">
+                    {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}">
+                            <i class="bi bi-chevron-left"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+                    <li class="page-item active">
+                        <span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+                    </li>
+                    {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}">
+                            <i class="bi bi-chevron-right"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

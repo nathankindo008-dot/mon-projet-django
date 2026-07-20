@@ -1,0 +1,285 @@
+{% extends 'base.html' %}
+{% block title %}Modifier — {{ indicateur.nom|truncatechars:40 }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .section-header {
+        font-size: .95rem;
+        font-weight: 700;
+        color: #1a3a5c;
+        border-bottom: 2px solid #009A44;
+        padding-bottom: .4rem;
+        margin-bottom: 1rem;
+        margin-top: 1.5rem;
+    }
+    .section-header i { color: #009A44; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+
+        <!-- SIDEBAR -->
+        <div class="col-md-2 px-0 sidebar">
+            <div class="user-info mt-2">
+                <div class="user-name">{{ user.prenom }} {{ user.nom }}</div>
+                <div class="user-role">{{ user.role }}</div>
+            </div>
+            <div class="sidebar-title">Navigation</div>
+            <nav class="nav flex-column">
+                <a class="nav-link" href="{% url 'agents:dashboard' %}"><i class="bi bi-speedometer2"></i>Tableau de bord</a>
+                <a class="nav-link" href="{% url 'agents:saisie' %}"><i class="bi bi-plus-circle"></i>Saisir une donnée</a>
+                <a class="nav-link" href="{% url 'agents:mes_donnees' %}"><i class="bi bi-table"></i>Mes données</a>
+                <div class="sidebar-title mt-2">Administration</div>
+                <a class="nav-link" href="{% url 'agents:validation' %}"><i class="bi bi-check-circle"></i>Validation</a>
+                <a class="nav-link" href="{% url 'agents:liste_agents' %}"><i class="bi bi-people"></i>Gestion agents</a>
+                <a class="nav-link active" href="{% url 'agents:gestion_indicateurs' %}"><i class="bi bi-journal-text"></i>Gestion indicateurs</a>
+                <div class="sidebar-title mt-2">Public</div>
+                <a class="nav-link" href="{% url 'public:accueil' %}"><i class="bi bi-house"></i>Site public</a>
+                <a class="nav-link text-warning" href="{% url 'agents:logout' %}"><i class="bi bi-box-arrow-right"></i>Déconnexion</a>
+            </nav>
+        </div>
+
+        <!-- CONTENU -->
+        <div class="col-md-10 p-4">
+
+            <div class="d-flex align-items-center mb-3">
+                <a href="{% url 'agents:gestion_indicateurs' %}" class="btn btn-outline-secondary btn-sm me-3">
+                    <i class="bi bi-arrow-left"></i>
+                </a>
+                <h4 class="mb-0">
+                    <i class="bi bi-pencil me-2 text-primary"></i>
+                    Modifier l'indicateur
+                </h4>
+            </div>
+
+            <div class="row">
+                <div class="col-lg-10 col-xl-9">
+                    <div class="card">
+                        <div class="card-body p-4">
+                            <form method="post">
+                                {% csrf_token %}
+
+                                <!-- ═══ INFORMATIONS PRINCIPALES ═══ -->
+                                <div class="section-header">
+                                    <i class="bi bi-info-circle me-2"></i>Informations principales
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label fw-semibold">Nom <span class="text-danger">*</span></label>
+                                    <textarea name="nom" class="form-control" rows="2" required>{{ indicateur.nom }}</textarea>
+                                </div>
+
+                                <div class="row g-3 mb-3">
+                                    <div class="col-md-4">
+                                        <label class="form-label fw-semibold">Indicateur <span class="text-danger">*</span></label>
+                                        <select name="source" class="form-select">
+                                            <option value="CISAT" {% if indicateur.source == 'CISAT' %}selected{% endif %}>Climatique</option>
+                                            <option value="BASICSET" {% if indicateur.source == 'BASICSET' %}selected{% endif %}>Environnemental</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label fw-semibold">Niveau <span class="text-danger">*</span></label>
+                                        <select name="etage" class="form-select">
+                                            <option value="1" {% if indicateur.etage == 1 %}selected{% endif %}>Niveau 1</option>
+                                            <option value="2" {% if indicateur.etage == 2 %}selected{% endif %}>Niveau 2</option>
+                                            <option value="3" {% if indicateur.etage == 3 %}selected{% endif %}>Niveau 3</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label fw-semibold">Code</label>
+                                        <input type="text" name="code" class="form-control"
+                                               value="{{ indicateur.code|default:'' }}">
+                                    </div>
+                                </div>
+
+                                <div class="row g-3 mb-3">
+                                    <div class="col-md-4">
+                                        <label class="form-label fw-semibold">N° CISAT</label>
+                                        <input type="number" name="numero_cisat" class="form-control"
+                                               value="{{ indicateur.numero_cisat|default:'' }}">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label fw-semibold">Zone CISAT</label>
+                                        <input type="text" name="zone_cisat" class="form-control"
+                                               value="{{ indicateur.zone_cisat|default:'' }}">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label fw-semibold">Composante</label>
+                                        <input type="text" name="composante_basicset" class="form-control"
+                                               value="{{ indicateur.composante_basicset|default:'' }}">
+                                    </div>
+                                </div>
+
+                                <div class="row g-3 mb-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-semibold">Thème</label>
+                                        <input type="text" name="theme" class="form-control"
+                                               value="{{ indicateur.theme|default:'' }}">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-semibold">Unité de mesure</label>
+                                        <input type="text" name="unite_mesure" class="form-control"
+                                               value="{{ indicateur.unite_mesure|default:'' }}">
+                                    </div>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label fw-semibold">Sujet</label>
+                                    <textarea name="sujet" class="form-control" rows="2">{{ indicateur.sujet|default:'' }}</textarea>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label fw-semibold">Sous-composante</label>
+                                    <textarea name="sous_composante" class="form-control" rows="2">{{ indicateur.sous_composante|default:'' }}</textarea>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label fw-semibold">Statistique</label>
+                                    <textarea name="statistique" class="form-control" rows="2">{{ indicateur.statistique|default:'' }}</textarea>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label fw-semibold">Institution focale</label>
+                                    <textarea name="institution_focale" class="form-control" rows="2">{{ indicateur.institution_focale|default:'' }}</textarea>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label fw-semibold">Sources nationales</label>
+                                    <textarea name="sources_nat" class="form-control" rows="2">{{ indicateur.sources_nat|default:'' }}</textarea>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label fw-semibold">Agrégations</label>
+                                    <textarea name="agregations" class="form-control" rows="2">{{ indicateur.agregations|default:'' }}</textarea>
+                                </div>
+
+                                <!-- ═══ RÉFÉRENCES INTERNATIONALES ═══ -->
+                                <div class="section-header">
+                                    <i class="bi bi-globe me-2"></i>Références internationales
+                                </div>
+
+                                <div class="row g-3 mb-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-semibold">Accord de Paris</label>
+                                        <input type="text" name="accord_paris" class="form-control"
+                                               value="{{ indicateur.accord_paris|default:'' }}">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-semibold">PAWP / Katowice</label>
+                                        <textarea name="pawp_katowice" class="form-control" rows="2">{{ indicateur.pawp_katowice|default:'' }}</textarea>
+                                    </div>
+                                </div>
+
+                                <div class="row g-3 mb-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-semibold">Réf. FDES</label>
+                                        <input type="text" name="ref_fdes" class="form-control"
+                                               value="{{ indicateur.ref_fdes|default:'' }}">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-semibold">Réf. ODD</label>
+                                        <input type="text" name="ref_odd" class="form-control"
+                                               value="{{ indicateur.ref_odd|default:'' }}">
+                                    </div>
+                                </div>
+
+                                <div class="row g-3 mb-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-semibold">Réf. Sendai</label>
+                                        <input type="text" name="ref_sendai" class="form-control"
+                                               value="{{ indicateur.ref_sendai|default:'' }}">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-semibold">Réf. UNECE</label>
+                                        <input type="text" name="ref_unece" class="form-control"
+                                               value="{{ indicateur.ref_unece|default:'' }}">
+                                    </div>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label fw-semibold">Réf. méthodologique</label>
+                                    <input type="text" name="ref_methodo" class="form-control"
+                                           value="{{ indicateur.ref_methodo|default:'' }}">
+                                </div>
+
+                                <!-- ═══ MÉTADONNÉES ═══ -->
+                                <div class="section-header">
+                                    <i class="bi bi-book me-2"></i>Métadonnées
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label fw-semibold">Définition</label>
+                                    <textarea name="meta_definition" class="form-control" rows="3">{% if meta %}{{ meta.definition|default:'' }}{% endif %}</textarea>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label fw-semibold">Pertinence climatique</label>
+                                    <textarea name="meta_pertinence" class="form-control" rows="3">{% if meta %}{{ meta.pertinence|default:'' }}{% endif %}</textarea>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label fw-semibold">Méthode de calcul</label>
+                                    <textarea name="meta_methode_calcul" class="form-control" rows="3">{% if meta %}{{ meta.methode_calcul|default:'' }}{% endif %}</textarea>
+                                </div>
+
+                                <div class="row g-3 mb-3">
+                                    <div class="col-md-4">
+                                        <label class="form-label fw-semibold">Type de source</label>
+                                        <input type="text" name="meta_type_source_donnee" class="form-control"
+                                               value="{% if meta %}{{ meta.type_source_donnee|default:'' }}{% endif %}">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label fw-semibold">Fréquence MAJ</label>
+                                        <input type="text" name="meta_frequence_maj" class="form-control"
+                                               value="{% if meta %}{{ meta.frequence_maj|default:'' }}{% endif %}">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label fw-semibold">Catégorie de mesure</label>
+                                        <input type="text" name="meta_categorie_mesure" class="form-control"
+                                               value="{% if meta %}{{ meta.categorie_mesure|default:'' }}{% endif %}">
+                                    </div>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label fw-semibold">Agrégations potentielles</label>
+                                    <textarea name="meta_agregations_potentielles" class="form-control" rows="2">{% if meta %}{{ meta.agregations_potentielles|default:'' }}{% endif %}</textarea>
+                                </div>
+
+                                <!-- ═══ STATUT ═══ -->
+                                <div class="section-header">
+                                    <i class="bi bi-toggles me-2"></i>Statut
+                                </div>
+
+                                <div class="mb-3">
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" name="actif" id="actif-check"
+                                               {% if indicateur.actif %}checked{% endif %}>
+                                        <label class="form-check-label fw-semibold" for="actif-check">
+                                            Indicateur actif
+                                        </label>
+                                    </div>
+                                    <div class="form-text">Un indicateur inactif n'apparaît plus sur le site public ni dans la saisie.</div>
+                                </div>
+
+                                <hr>
+
+                                <div class="d-flex justify-content-between">
+                                    <a href="{% url 'agents:gestion_indicateurs' %}" class="btn btn-outline-secondary">
+                                        <i class="bi bi-x-circle me-1"></i>Annuler
+                                    </a>
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="bi bi-check-lg me-1"></i>Enregistrer les modifications
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+{% endblock %}

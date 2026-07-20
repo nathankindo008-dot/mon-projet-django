@@ -1,0 +1,204 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+
+        <!-- SIDEBAR -->
+        <div class="col-md-2 px-0 sidebar">
+            <div class="user-info mt-2">
+                <div class="user-name">{{ user.prenom }} {{ user.nom }}</div>
+                <div class="user-role">{{ user.role }}</div>
+                <small class="text-white-50">{{ user.institution|default:"" }}</small>
+            </div>
+
+            <div class="sidebar-title">Navigation</div>
+            <nav class="nav flex-column">
+                <a class="nav-link active" href="{% url 'agents:dashboard' %}">
+                    <i class="bi bi-speedometer2"></i>Tableau de bord
+                </a>
+                <a class="nav-link" href="{% url 'agents:saisie' %}">
+                    <i class="bi bi-plus-circle"></i>Saisir une donnée
+                </a>
+                <a class="nav-link" href="{% url 'agents:mes_donnees' %}">
+                    <i class="bi bi-table"></i>Mes données
+                </a>
+                {% if user.role == 'admin' %}
+                <div class="sidebar-title mt-2">Administration</div>
+                <a class="nav-link" href="{% url 'agents:validation' %}">
+                    <i class="bi bi-check-circle"></i>Validation
+                </a>
+                <a class="nav-link" href="{% url 'agents:liste_agents' %}">
+                    <i class="bi bi-people"></i>Gestion agents
+                </a>
+                <a class="nav-link" href="{% url 'agents:gestion_indicateurs' %}">
+                    <i class="bi bi-journal-text"></i>Gestion indicateurs
+                </a>
+                {% endif %}
+                <div class="sidebar-title mt-2">Public</div>
+                <a class="nav-link" href="{% url 'public:accueil' %}">
+                    <i class="bi bi-house"></i>Site public
+                </a>
+                <a class="nav-link text-warning" href="{% url 'agents:logout' %}">
+                    <i class="bi bi-box-arrow-right"></i>Déconnexion
+                </a>
+            </nav>
+        </div>
+
+        <!-- CONTENU -->
+        <div class="col-md-10 p-4">
+            <h4 class="mb-4">
+                <i class="bi bi-speedometer2 me-2 text-primary"></i>
+                Tableau de bord
+            </h4>
+
+            <!-- Stats personnelles -->
+            <div class="row g-3 mb-4">
+                <div class="col-md-2">
+                    <div class="card stat-card p-3 text-center">
+                        <div class="stat-number">{{ stats.total }}</div>
+                        <div class="stat-label">Total saisies</div>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="card stat-card p-3 text-center">
+                        <div class="stat-number text-secondary">{{ stats.brouillon }}</div>
+                        <div class="stat-label">Brouillons</div>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="card stat-card bleu p-3 text-center">
+                        <div class="stat-number text-primary">{{ stats.soumis }}</div>
+                        <div class="stat-label">Soumis</div>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="card stat-card p-3 text-center">
+                        <div class="stat-number text-success">{{ stats.valide }}</div>
+                        <div class="stat-label">Validés</div>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="card stat-card rouge p-3 text-center">
+                        <div class="stat-number text-danger">{{ stats.rejete }}</div>
+                        <div class="stat-label">Rejetés</div>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="card p-3 text-center bg-white border">
+                        <div class="stat-number text-success">{{ taux }}%</div>
+                        <div class="stat-label">Taux remplissage</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Progression globale -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="bi bi-graph-up me-2"></i>
+                    Progression globale — Côte d'Ivoire
+                </div>
+                <div class="card-body">
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>{{ total_saisis }} indicateurs renseignés sur {{ total_ind }}</span>
+                        <strong>{{ taux }}%</strong>
+                    </div>
+                    <div class="progress" style="height:15px;">
+                        <div class="progress-bar" style="width:{{ taux }}%;">{{ taux }}%</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <!-- Dernières saisies -->
+                <div class="col-md-8">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between">
+                            <span><i class="bi bi-clock me-2"></i>Mes dernières saisies</span>
+                            <a href="{% url 'agents:saisie' %}" class="btn btn-success btn-sm">
+                                <i class="bi bi-plus"></i> Nouvelle saisie
+                            </a>
+                        </div>
+                        <div class="card-body p-0">
+                            <table class="table table-hover mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Indicateur</th>
+                                        <th>Année</th>
+                                        <th>Statut</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for d in dernieres %}
+                                    <tr>
+                                        <td style="font-size:0.85rem;">
+                                            {{ d.indicateur.nom|truncatechars:50 }}
+                                        </td>
+                                        <td>{{ d.annee_reference }}</td>
+                                        <td>
+                                            <span class="badge badge-{{ d.statut }}">
+                                                {{ d.get_statut_display }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <a href="{% url 'agents:saisie_indicateur' d.indicateur.pk %}"
+                                               class="btn btn-sm btn-outline-secondary">
+                                                <i class="bi bi-pencil"></i>
+                                            </a>
+                                        </td>
+                                    </tr>
+                                    {% empty %}
+                                    <tr>
+                                        <td colspan="4" class="text-center text-muted py-3">
+                                            Aucune saisie pour l'instant
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Données rejetées -->
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-header text-danger">
+                            <i class="bi bi-x-circle me-2"></i>À corriger
+                        </div>
+                        <div class="card-body p-0">
+                            {% if rejetes %}
+                            <ul class="list-group list-group-flush">
+                                {% for d in rejetes %}
+                                <li class="list-group-item">
+                                    <div style="font-size:0.85rem;" class="fw-semibold">
+                                        {{ d.indicateur.nom|truncatechars:40 }}
+                                    </div>
+                                    {% if d.motif_rejet %}
+                                    <small class="text-danger">{{ d.motif_rejet|truncatechars:60 }}</small>
+                                    {% endif %}
+                                    <div class="mt-1">
+                                        <a href="{% url 'agents:saisie_indicateur' d.indicateur.pk %}"
+                                           class="btn btn-sm btn-outline-danger">
+                                            Corriger
+                                        </a>
+                                    </div>
+                                </li>
+                                {% endfor %}
+                            </ul>
+                            {% else %}
+                            <div class="text-center text-muted py-3">
+                                <i class="bi bi-check-circle text-success fs-4 d-block mb-1"></i>
+                                <small>Aucune donnée rejetée</small>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
