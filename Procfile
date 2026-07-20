@@ -1,0 +1,1 @@
+web: gunicorn cisat_project.wsgi --log-file -
