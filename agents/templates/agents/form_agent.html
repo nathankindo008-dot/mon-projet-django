@@ -53,13 +53,13 @@
                                     <div class="col-md-6">
                                         <label class="form-label fw-semibold">Prénom <span class="text-danger">*</span></label>
                                         <input type="text" name="prenom" class="form-control"
-                                               value="{% if mode == 'modifier' %}{{ agent.prenom }}{% endif %}"
+                                               value="{% if form_data.prenom %}{{ form_data.prenom }}{% elif mode == 'modifier' %}{{ agent.prenom }}{% endif %}"
                                                required>
                                     </div>
                                     <div class="col-md-6">
                                         <label class="form-label fw-semibold">Nom <span class="text-danger">*</span></label>
                                         <input type="text" name="nom" class="form-control"
-                                               value="{% if mode == 'modifier' %}{{ agent.nom }}{% endif %}"
+                                               value="{% if form_data.nom %}{{ form_data.nom }}{% elif mode == 'modifier' %}{{ agent.nom }}{% endif %}"
                                                required>
                                     </div>
                                 </div>
@@ -67,7 +67,7 @@
                                 <div class="mb-3">
                                     <label class="form-label fw-semibold">Email <span class="text-danger">*</span></label>
                                     <input type="email" name="email" class="form-control"
-                                           value="{% if mode == 'modifier' %}{{ agent.email }}{% endif %}"
+                                           value="{% if form_data.email %}{{ form_data.email }}{% elif mode == 'modifier' %}{{ agent.email }}{% endif %}"
                                            required>
                                 </div>
 
@@ -92,7 +92,7 @@
                                 <div class="mb-3">
                                     <label class="form-label fw-semibold">Institution</label>
                                     <input type="text" name="institution" class="form-control"
-                                           value="{% if mode == 'modifier' %}{{ agent.institution|default:'' }}{% endif %}">
+                                           value="{% if form_data.institution %}{{ form_data.institution }}{% elif mode == 'modifier' %}{{ agent.institution|default:'' }}{% endif %}">
                                 </div>
 
                                 <div class="row g-3 mb-3">
@@ -102,7 +102,8 @@
                                             <option value="">— Sélectionner —</option>
                                             {% for p in pays_list %}
                                             <option value="{{ p.id }}"
-                                                {% if mode == 'modifier' and agent.pays_id == p.id %}selected{% endif %}>
+                                                {% if form_data.pays_id == p.id|stringformat:'s' %}selected
+                                                {% elif mode == 'modifier' and agent.pays_id == p.id %}selected{% endif %}>
                                                 {{ p.nom }}
                                             </option>
                                             {% endfor %}
@@ -112,11 +113,13 @@
                                         <label class="form-label fw-semibold">Rôle <span class="text-danger">*</span></label>
                                         <select name="role" class="form-select">
                                             <option value="collecteur"
-                                                {% if mode == 'modifier' and agent.role == 'collecteur' %}selected{% endif %}>
+                                                {% if form_data.role == 'collecteur' %}selected
+                                                {% elif mode == 'modifier' and agent.role == 'collecteur' %}selected{% endif %}>
                                                 Collecteur
                                             </option>
                                             <option value="admin"
-                                                {% if mode == 'modifier' and agent.role == 'admin' %}selected{% endif %}>
+                                                {% if form_data.role == 'admin' %}selected
+                                                {% elif mode == 'modifier' and agent.role == 'admin' %}selected{% endif %}>
                                                 Administrateur
                                             </option>
                                         </select>
@@ -127,7 +130,8 @@
                                 <div class="mb-3">
                                     <div class="form-check form-switch">
                                         <input class="form-check-input" type="checkbox" name="actif" id="actif-check"
-                                               {% if agent.actif %}checked{% endif %}>
+                                               {% if form_data.actif %}checked
+                                               {% elif mode == 'modifier' and agent.actif %}checked{% endif %}>
                                         <label class="form-check-label fw-semibold" for="actif-check">
                                             Compte actif
                                         </label>

@@ -383,6 +383,7 @@ def creer_agent(request):
     user = get_utilisateur_connecte(request)
     pays_list = Pays.objects.filter(actif=True).order_by('nom')
 
+    form_data = {}
     if request.method == 'POST':
         nom         = request.POST.get('nom', '').strip()
         prenom      = request.POST.get('prenom', '').strip()
@@ -391,6 +392,15 @@ def creer_agent(request):
         institution = request.POST.get('institution', '').strip()
         pays_id     = request.POST.get('pays')
         role        = request.POST.get('role', 'collecteur')
+
+        form_data = {
+            'nom': nom,
+            'prenom': prenom,
+            'email': email,
+            'institution': institution,
+            'pays_id': pays_id,
+            'role': role,
+        }
 
         if not all([nom, prenom, email, password]):
             messages.error(request, "Tous les champs obligatoires doivent être remplis.")
@@ -414,6 +424,7 @@ def creer_agent(request):
         'user': user,
         'pays_list': pays_list,
         'mode': 'creer',
+        'form_data': form_data,
     }
     return render(request, 'agents/form_agent.html', context)
 
@@ -424,33 +435,55 @@ def modifier_agent(request, pk):
     agent = get_object_or_404(Utilisateur, pk=pk)
     pays_list = Pays.objects.filter(actif=True).order_by('nom')
 
+    form_data = {}
     if request.method == 'POST':
-        agent.nom         = request.POST.get('nom', '').strip()
-        agent.prenom      = request.POST.get('prenom', '').strip()
-        agent.email       = request.POST.get('email', '').strip()
-        agent.institution = request.POST.get('institution', '').strip() or None
-        pays_id           = request.POST.get('pays')
-        agent.pays_id     = int(pays_id) if pays_id else None
-        agent.role        = request.POST.get('role', 'collecteur')
-        agent.actif       = request.POST.get('actif') == 'on'
+        nom         = request.POST.get('nom', '').strip()
+        prenom      = request.POST.get('prenom', '').strip()
+        email       = request.POST.get('email', '').strip()
+        institution = request.POST.get('institution', '').strip() or None
+        pays_id     = request.POST.get('pays')
+        role        = request.POST.get('role', 'collecteur')
+        actif       = request.POST.get('actif') == 'on'
 
-        new_password = request.POST.get('password', '').strip()
-        if new_password:
-            agent.mot_de_passe_hash = make_password(new_password)
+        form_data = {
+            'nom': nom,
+            'prenom': prenom,
+            'email': email,
+            'institution': institution or '',
+            'pays_id': pays_id,
+            'role': role,
+            'actif': actif,
+        }
 
-        doublon = Utilisateur.objects.filter(email=agent.email).exclude(pk=pk).exists()
-        if doublon:
-            messages.error(request, "Un autre compte utilise déjà cet email.")
+        if not all([nom, prenom, email]):
+            messages.error(request, "Les champs Nom, Prénom et Email sont obligatoires.")
         else:
-            agent.save()
-            messages.success(request, f"Agent {agent.prenom} {agent.nom} modifié.")
-            return redirect('agents:liste_agents')
+            agent.nom         = nom
+            agent.prenom      = prenom
+            agent.email       = email
+            agent.institution = institution
+            agent.pays_id     = int(pays_id) if pays_id else None
+            agent.role        = role
+            agent.actif       = actif
+
+            new_password = request.POST.get('password', '').strip()
+            if new_password:
+                agent.mot_de_passe_hash = make_password(new_password)
+
+            doublon = Utilisateur.objects.filter(email=agent.email).exclude(pk=pk).exists()
+            if doublon:
+                messages.error(request, "Un autre compte utilise déjà cet email.")
+            else:
+                agent.save()
+                messages.success(request, f"Agent {agent.prenom} {agent.nom} modifié.")
+                return redirect('agents:liste_agents')
 
     context = {
         'user': user,
         'agent': agent,
         'pays_list': pays_list,
         'mode': 'modifier',
+        'form_data': form_data,
     }
     return render(request, 'agents/form_agent.html', context)
 
